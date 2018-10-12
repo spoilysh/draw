@@ -1,0 +1,25 @@
+# -*- coding: UTF-8 -*-
+
+#python replaceLine.py "/Users/fisherhk/Desktop/test/GDSignatureOC/GDSignature.xcodeproj/project.pbxproj" "\"-ObjC\"," "\"-ObjC\",\"-lcrypto\",\"-lGDCASdk\",\"-lssl\","
+
+#python replaceLine.py "/Users/fisherhk/Desktop/test/GDSignatureOC/GDSignature.xcodeproj/project.pbxproj" "GD_PDFReader.framework" ""
+#rm -rf "/Users/fisherhk/Desktop/test/GDSignatureOC/GDSignature/SignAndPDFReader/GD_PDFReader.framework"
+
+#rm -rf "/Users/fisherhk/Desktop/test/GDSignatureOC/GDSignature/BaseVC"
+echo "当前位置0 = $(pwd)"
+
+cd "/Users/fisherhk/Desktop/test/Hos_OCdemo"
+echo "当前位置1 = $(pwd)"
+rm -rf "$(pwd)/build"
+
+cd ..
+echo "当前位置2 = $(pwd)"
+demoDir="Hos_OCdemo"
+zip -r  ${demoDir}.zip ${demoDir}
+
+
+
+
+
+
+

@@ -1,0 +1,626 @@
+ #!/usr/bin/env bash
+name="other"
+demoDir="dir"
+SDKDir="GDSignature"
+projectName="GDSignature"
+applicationIdsh=$ApplicationId
+
+bundle_idsh=$(echo "$bundle_Id" | awk '{gsub(/ /,"")}1')
+appIdsh=$(echo "$app_id" | awk '{gsub(/ /,"")}1')
+appSecretsh=$(echo "$app_secret" | awk '{gsub(/ /,"")}1')
+
+#==============处理SignManager.h文件 =============
+
+#cd "GDCA_SDK&Demo(WeBank)"
+cd "标准_SDK_DEMO"
+demoDir="Hos_OCdemo"
+name="GDCA_SDK"
+SDKDir="GDSignatureOC"
+
+GDCASignManager_m_Path="$(pwd)/GDSignatureOC/GDSignature/Interface/GDCASignManager.m"
+Sign_PDF_ramework_Path="$(pwd)/GDSignatureOC/GDSignature/SignAndPDFReader/GD_PDFReader.framework"
+GDCAConstant_Path="$(pwd)/GDSignatureOC/GDSignature/Others/GDCAConstant.h"
+SignManager_m_project_path="$(pwd)/GDSignatureOC/GDSignature.xcodeproj/project.pbxproj"
+GDCASignManager_PCH_Path="$(pwd)/GDSignatureOC/GDSignature/Others/GDSignature-PrefixHeader.pch"
+GDCAFace_Resources_Path="$(pwd)/GDSignatureOC/GDSignature/face/resource/"
+GDCAFacePlus_Resources_Path="$(pwd)/FacePlus/resource/"
+GDCAWeBank_Resources_Path="$(pwd)/faceweizong/resource/"
+Demo_PCH_path="$(pwd)/Hos_OCdemo/Hos_OCdemo/PrefixHeader.pch"
+Demo_MainVC_path="$(pwd)/Hos_OCdemo/Hos_OCdemo/MainViewController.m"
+Demo_PDF_Bundle_path="$(pwd)/Hos_OCdemo/Hos_OCdemo/SDK/GD_PDFReader.bundle"
+Demo_project_path="$(pwd)/Hos_OCdemo/Hos_OCdemo.xcodeproj/project.pbxproj"
+
+#删除实名认证相关文件，内容的路径
+facevc_h_path="$(pwd)/GDSignatureOC/GDSignature/face/controller/GD_FaceViewController.h"
+facevc_m_path="$(pwd)/GDSignatureOC/GDSignature/face/controller/GD_FaceViewController.m"
+easyLivingnpvc_m_path="$(pwd)/GDSignatureOC/GDSignature/face/controller/GDCAEasyLivingCheckNPVC.m"
+easyLivingvc_m_path="$(pwd)/GDSignatureOC/GDSignature/face/controller/GDCAEasyLivingCheckVC.m"
+gdcasignmanager_h_path="$(pwd)/GDSignatureOC/GDSignature/Interface/GDCASignManager.h"
+gdcaidentifierop_h_path="$(pwd)/GDSignatureOC/GDSignature/Auth/GDCAIDentityOperation.h"
+gdcaidentifierop_m_path="$(pwd)/GDSignatureOC/GDSignature/Auth/GDCAIDentityOperation.m"
+gdcawebank_m_path="$(pwd)/GDSignatureOC/GDSignature/WeBankOperations/GDCAWeBankObject.m"
+gdcawebankoperation_m_path="$(pwd)/GDSignatureOC/GDSignature/WeBankOperations/GDCAWeBankOperation.m"
+gdcafaceobject_m_path="$(pwd)/GDSignatureOC/GDSignature/Models/GDCAFaceObject.m"
+
+#更换app_id,app_secrect, title
+python replaceLine.py "${Demo_PCH_path}" "static NSString *const app_id" "static NSString *const app_id = @\"$appIdsh\";"
+python replaceLine.py "${Demo_PCH_path}" "static NSString *const app_secret" "static NSString *const app_secret = @\"$appSecretsh\";"
+python Jenkins_Replace.py "com.gdca.sdk.pinsign" "SignManager_m_project_path" "$bundle_idsh"
+
+#生成证书
+if $Has_Create_Cert
+then
+echo "生成证书"
+else
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isCreateCert =" "static BOOL const isCreateCert = NO;"
+python replaceLine.py "${Demo_PCH_path}" "@{@\"item\" : @\"生成证书(需要凭证号 voucherId)\", @\"action\" : @\"createCert\"}," ""
+
+echo "没有生成证书"
+
+$Has_Cert_Info = false
+$Has_Sign = false
+$Has_CA_Login = false
+$Has_MulSign = false
+
+fi
+echo "----生成证书 end-------"
+
+#证书详情
+if $Has_Create_Cert && $Has_Cert_Info
+then
+echo "证书详情处理"
+
+else
+echo "没有证书详情"
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isGetCertInfo =" "static BOOL const isGetCertInfo = NO;"
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"证书详情(需要凭证号 voucherId)\", @\"action\" : @\"certDetail\"}," ""
+
+fi
+echo "----证书详情 end-------"
+
+#实名认证类型
+if $Has_Auth #需要处理实名认证的不同类型
+then
+python replaceLine.py "${Demo_PCH_path}" "static BOOL const authType =" "static BOOL const authType = YES;"
+echo "实名认证类型"
+
+case $Auth_Type in
+
+Ocr)
+echo "OCR处理"
+python replaceLine.py "${GDCAConstant_Path}" "static const AuthorType kAuthorType =" "static const AuthorType kAuthorType = GDCAAuthorTypeOCR;"
+
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isEasyLivingCheck =" "static BOOL const isEasyLivingCheck = NO;"
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isDeepLivingCheck =" "static BOOL const isDeepLivingCheck = NO;"
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isRequestAuth =" "static BOOL const isRequestAuth = NO;"
+
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"实名认证\", @\"action\" : @\"auth\"}," ""
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"快捷活体鉴别\", @\"action\" : @\"facePlus\"}," ""
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"深度活体鉴别\", @\"action\" : @\"deepLivingCheck\"}," ""
+
+;;
+Faceplus)
+echo "Faceplus处理"
+
+#替换face++为webank framework
+rm -rf ${GDCAFace_Resources_Path}
+cp -r ${GDCAFacePlus_Resources_Path} ${GDCAFace_Resources_Path}
+
+python replaceLine.py "${GDCAConstant_Path}" "static const AuthorType kAuthorType =" "static const AuthorType kAuthorType = GDCAAuthorTypeFacePlus;"
+
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isOcrIdentityForPicture =" "static BOOL const isOcrIdentityForPicture = NO;"
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isDeepLivingCheck =" "static BOOL const isDeepLivingCheck = NO;"
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isRequestAuth =" "static BOOL const isRequestAuth = NO;"
+
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"实名认证\", @\"action\" : @\"auth\"}," ""
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"OCR\", @\"action\" : @\"ocr\"}," ""
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"深度活体鉴别\", @\"action\" : @\"deepLivingCheck\"}," ""
+
+;;
+Webank)
+echo "Webank处理"
+#替换face++为webank framework
+rm -rf ${GDCAFace_Resources_Path}
+cp -r ${GDCAWeBank_Resources_Path} ${GDCAFace_Resources_Path}
+
+python replaceLine.py "${GDCAConstant_Path}" "static const AuthorType kAuthorType =" "static const AuthorType kAuthorType = GDCAAuthorTypeWeBank;"
+
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isOcrIdentityForPicture =" "static BOOL const isOcrIdentityForPicture = NO;"
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isEasyLivingCheck =" "static BOOL const isEasyLivingCheck = NO;"
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isRequestAuth =" "static BOOL const isRequestAuth = NO;"
+
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"实名认证\", @\"action\" : @\"auth\"}," ""
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"OCR\", @\"action\" : @\"ocr\"}," ""
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"快捷活体鉴别\", @\"action\" : @\"facePlus\"}," ""
+
+;;
+OcrAndWebank)
+
+echo "OcrAndWebank处理"
+
+#替换face++为webank framework
+rm -rf ${GDCAFace_Resources_Path}
+cp -r ${GDCAWeBank_Resources_Path} ${GDCAFace_Resources_Path}
+
+python replaceLine.py "${GDCAConstant_Path}" "static const AuthorType kAuthorType =" "static const AuthorType kAuthorType = AuthorTypeOCRWeBank;"
+
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isOcrIdentityForPicture =" "static BOOL const isOcrIdentityForPicture = NO;"
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isEasyLivingCheck =" "static BOOL const isEasyLivingCheck = NO;"
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isDeepLivingCheck =" "static BOOL const isDeepLivingCheck = NO;"
+
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"OCR\", @\"action\" : @\"ocr\"}," ""
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"快捷活体鉴别\", @\"action\" : @\"facePlus\"}," ""
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"深度活体鉴别\", @\"action\" : @\"deepLivingCheck\"}," ""
+
+;;
+OcrAndFaceplus)
+echo "OcrAndFaceplus处理"
+
+#替换face++为webank framework
+rm -rf ${GDCAFace_Resources_Path}
+cp -r ${GDCAFacePlus_Resources_Path} ${GDCAFace_Resources_Path}
+
+
+python replaceLine.py "${GDCAConstant_Path}" "static const AuthorType kAuthorType =" "static const AuthorType kAuthorType = AuthorTypeOCRFacePlus;"
+
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isOcrIdentityForPicture =" "static BOOL const isOcrIdentityForPicture = NO;"
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isEasyLivingCheck =" "static BOOL const isEasyLivingCheck = NO;"
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isDeepLivingCheck =" "static BOOL const isDeepLivingCheck = NO;"
+
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"OCR\", @\"action\" : @\"ocr\"}," ""
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"快捷活体鉴别\", @\"action\" : @\"facePlus\"}," ""
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"深度活体鉴别\", @\"action\" : @\"deepLivingCheck\"}," ""
+
+;;
+OcrOrFaceplus)
+echo "OcrOrFaceplus处理"
+
+#替换face++为webank framework
+rm -rf ${GDCAFace_Resources_Path}
+cp -r ${GDCAFacePlus_Resources_Path} ${GDCAFace_Resources_Path}
+
+
+python replaceLine.py "${GDCAConstant_Path}" "static const AuthorType kAuthorType =" "static const AuthorType kAuthorType = GDCAAuthorTypeOCR;"
+
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isRequestAuth =" "static BOOL const isRequestAuth = NO;"
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isDeepLivingCheck =" "static BOOL const isDeepLivingCheck = NO;"
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"实名认证\", @\"action\" : @\"auth\"}," ""
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"深度活体鉴别\", @\"action\" : @\"deepLivingCheck\"}," ""
+
+;;
+*)
+echo "other处理"
+;;
+esac
+
+else  #无实名认证处理
+
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isHas_Auth =" "static BOOL const isHas_Auth = NO;"
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isRequestAuth =" "static BOOL const isRequestAuth = NO;"
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isDeepLivingCheck =" "static BOOL const isDeepLivingCheck = NO;"
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isOcrIdentityForPicture =" "static BOOL const isOcrIdentityForPicture = NO;"
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isEasyLivingCheck =" "static BOOL const isEasyLivingCheck = NO;"
+
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"实名认证\", @\"action\" : @\"auth\"}," ""
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"OCR\", @\"action\" : @\"ocr\"}," ""
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"快捷活体鉴别\", @\"action\" : @\"facePlus\"}," ""
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"深度活体鉴别\", @\"action\" : @\"deepLivingCheck\"}," ""
+python replaceLine.py "${Demo_PCH_path}" "static BOOL const authType =" "static BOOL const authType = NO;"
+
+
+python replaceLine.py ${SignManager_m_project_path} "NextCV.framework" ""
+python replaceLine.py ${SignManager_m_project_path} "WBCloudFaceVerifySDK.framework" ""
+python replaceLine.py ${SignManager_m_project_path} "YTFaceSDK.framework" ""
+rm -rf ${GDCAFace_Resources_Path}
+python replaceLine.py  ${facevc_h_path} "#import <YTFaceSDK/AuthManager.h>" ""
+python replaceLine.py  ${facevc_h_path} "#import <YTFaceSDK/LiveDetector.h>" ""
+python replaceLine.py  ${facevc_h_path} "#import <YTFaceSDK/LiveDetectorDelegate.h>" ""
+python replaceLine.py  ${facevc_h_path} "LiveDetector *myDetaector;" ""
+
+python removeAll.py ${facevc_m_path} "" ""
+python writeLine.py ${facevc_m_path} "#import \"GD_FaceViewController.h\""
+python writeLine.py ${facevc_m_path} "@implementation GD_FaceViewController"
+python writeLine.py ${facevc_m_path} "@end"
+
+python removeAll.py ${easyLivingnpvc_m_path} "" ""
+python writeLine.py ${easyLivingnpvc_m_path} "#import \"GDCAEasyLivingCheckNPVC.h\""
+python writeLine.py ${easyLivingnpvc_m_path} "@implementation GDCAEasyLivingCheckNPVC"
+python writeLine.py ${easyLivingnpvc_m_path} "@end"
+
+python removeAll.py ${easyLivingvc_m_path} "" ""
+python writeLine.py ${easyLivingvc_m_path} "#import \"GDCAEasyLivingCheckVC.h\""
+python writeLine.py ${easyLivingvc_m_path} "@implementation GDCAEasyLivingCheckVC"
+python writeLine.py ${easyLivingvc_m_path} "@end"
+
+python replaceLine.py  ${gdcasignmanager_h_path} "#import \"WBFaceVerifyCustomerService.h\"" ""
+python replaceLine.py  ${gdcasignmanager_h_path} "WBFaceVerifyCustomerServiceDelegate" ""
+python replaceLine.py  ${gdcaidentifierop_h_path} "+ (void)startWBFaceWithName:(NSString *)name idNum:(NSString *)idNum" ""
+
+python removeAll.py ${gdcawebank_m_path} "" ""
+python writeLine.py ${gdcawebank_m_path} "#import \"GDCAWeBankObject.h\""
+python writeLine.py ${gdcawebank_m_path} "@implementation GDCAWeBankObject"
+python writeLine.py ${gdcawebank_m_path} "@end"
+
+python removeAll.py ${gdcawebankoperation_m_path} "" ""
+python writeLine.py ${gdcawebankoperation_m_path} "#import \"GDCAWeBankOperation.h\""
+python writeLine.py ${gdcawebankoperation_m_path} "@implementation GDCAWeBankOperation"
+python writeLine.py ${gdcawebankoperation_m_path} "@end"
+
+python removeAll.py ${gdcaidentifierop_m_path} "" ""
+python writeLine.py ${gdcaidentifierop_m_path} "#import \"GDCAIDentityOperation.h\""
+python writeLine.py ${gdcaidentifierop_m_path} "@implementation GDCAIDentityOperation"
+python writeLine.py ${gdcaidentifierop_m_path} "@end"
+
+python removeAll.py ${gdcafaceobject_m_path} "" ""
+python writeLine.py ${gdcafaceobject_m_path} "#import \"GDCAFaceObject.h\""
+python writeLine.py ${gdcafaceobject_m_path} "@implementation GDCAFaceObject"
+python writeLine.py ${gdcafaceobject_m_path} "@end"
+
+fi
+
+
+#Has_CA_Login CA登录
+if $Has_CA_Login && $Has_Create_Cert
+then
+echo "CA登录处理"
+
+else
+
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isCaLogin =" "static BOOL const isCaLogin = NO;"
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"CA登录（此demo默认使用扫码实现CA登录）\", @\"action\" : @\"caLogin\"}," ""
+
+fi
+
+#Has_Change_Cert_PIN 修改PIN码
+if $Has_Change_Cert_PIN && $Has_Create_Cert
+then
+echo "----修改PIN-------"
+else
+
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isChangePin =" "static BOOL const isChangePin = NO;"
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"修改PIN码\", @\"action\" : @\"modifyPin\"}," ""
+
+echo "---- 木有修改PIN end-------"
+fi
+
+
+#Has_Reset_Cert_PIN 重置PIN码处理
+if $Has_Reset_Cert_PIN && $Has_Create_Cert
+then
+echo "重置PIN码处理"
+
+else
+
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isResetPin =" "static BOOL const isResetPin = NO;"
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"重置PIN码\", @\"action\" : @\"resetPin\"}," ""
+
+echo "----重置PIN end-------"
+fi
+
+
+#签署类型
+case $Sign_Type in
+normal)
+echo "normal处理"
+
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"P7签署\", @\"action\" : @\"p7Sign\"}," ""
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"P7批量签署\", @\"action\" : @\"p7MulSign\"}" ""
+
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isSignHash =" "static BOOL const isSignHash = NO;"
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isSignHashs =" "static BOOL const isSignHashs = NO;"
+
+#Has_Sign 普通单文件签署处理
+if $Has_Sign && $Has_Create_Cert
+then
+
+echo "单文件签署处理"
+else
+
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isSignFile =" "static BOOL const isSignFile = NO;"
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"签署（需要凭证号 voucherId 和签署号 signSerial）\", @\"action\" : @\"sign\"}," ""
+
+echo "----普通签署 end-------"
+
+fi
+
+
+if $Has_MulSign && $Has_Create_Cert
+then
+echo "多文件签署处理"
+
+else
+
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"批量签署\", @\"action\" : @\"mulSign\"}," ""
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isSignFiles =" "static BOOL const isSignFiles = NO;"
+
+echo "----普通批量签署 end-------"
+fi
+
+;;
+P7)
+echo "P7处理"
+
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isSignFiles =" "static BOOL const isSignFiles = NO;"
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isSignFile =" "static BOOL const isSignFile = NO;"
+
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"签署（需要凭证号 voucherId 和签署号 signSerial）\", @\"action\" : @\"sign\"}," ""
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"批量签署\", @\"action\" : @\"mulSign\"}," ""
+#Has_Sign 普通单文件签署处理
+if $Has_Sign && $Has_Create_Cert
+then
+
+echo "P7单文件签署处理"
+
+else
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isSignHash =" "static BOOL const isSignHash = NO;"
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"P7签署\", @\"action\" : @\"p7Sign\"}," ""
+
+fi
+
+if $Has_MulSign && $Has_Create_Cert
+then
+echo "P7多文件签署处理"
+
+else
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isSignHashs =" "static BOOL const isSignHashs = NO;"
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"P7批量签署\", @\"action\" : @\"p7MulSign\"}" ""
+
+fi
+
+;;
+*)
+echo "origin sign_other处理"
+;;
+
+esac
+
+
+#Has_PDF PDF 处理
+if $Has_PDF
+then
+echo "PDF处理"
+
+python replaceLine.py "${SignManager_m_project_path}" "(PROJECT_DIR)/GDSignature/GDCASigner" ""
+
+else
+python replaceLine.py "${Demo_MainVC_path}" "@{@\"item\" : @\"PDF查阅\", @\"action\" : @\"pdfRead\"}," ""
+python replaceLine.py "${GDCAConstant_Path}" "static BOOL const isOpenPdf =" "static BOOL const isOpenPdf = NO;"
+python replaceLine.py "${GDCASignManager_m_Path}" "#import <GD_PDFReader/GD_PDFReader.h>" ""
+python replaceLine.py "${GDCASignManager_m_Path}" "return [GD_PDFReader loadPdfWithPath:path password:password];" "return 100002;"
+
+#添加证书相关静态库
+python replaceLine.py "${SignManager_m_project_path}" "\"-ObjC\"," "\"-ObjC\",\"-lcrypto\",\"-lGDCASdk\",\"-lssl\","
+python replaceLine.py "${SignManager_m_project_path}" "OTHER_LDFLAGS = \"-ObjC\";" "OTHER_LDFLAGS = (\"-ObjC\",\"-lcrypto\",\"-lGDCASdk\",\"-lssl\",);"
+python replaceLine.py "${SignManager_m_project_path}" "(PROJECT_DIR)/GDSignature/SignAndPDFReader" ""
+python replaceLine.py "${SignManager_m_project_path}" "GD_PDFReader.framework" ""
+
+python replaceLine.py "${GDCASignManager_PCH_Path}" "#import <GD_PDFReader/GDCASdk.h>" ""
+python replaceLine.py "${GDCASignManager_PCH_Path}" "//#import \"GDCASdk.h\"" "#import \"GDCASdk.h\""
+#remove  GD_PDFReader.framework
+
+rm -rf ${Sign_PDF_ramework_Path}
+rm -rf ${Demo_PDF_Bundle_path}
+python replaceLine.py "${Demo_project_path}" "GD_PDFReader.bundle" ""
+
+fi
+echo "----PDF处理 end-------"
+
+if $PublicSite
+then
+python replaceLine.py "${Demo_FirstVC_Path}" "SignManager.shared.isPublicSite =" "SignManager.shared.isPublicSite = YES;"
+fi
+
+#==============处理文件 end=============
+#==============打包相关================
+
+cd $SDKDir
+echo $(pwd)
+file="ls *.xcodeproj"
+for item in $file
+do
+filename=${item%.*}
+echo $filename
+productName=$filename
+done
+
+target="${productName}"
+tmpDir="$(pwd)/build"
+rm -rf "${tmpDir}"#清除编译临时文件
+rm -rf ${WORKSPACE}/output #编译前清除output文件夹
+mkdir ${tmpDir}
+echo "${target}临时路径${tmpDir}"
+#SDK是否编译成功，默认是0
+ISFRAMEWORKSUCCESS=0
+
+function buildLibs(){
+sdks=("iphonesimulator" "iphoneos")
+#configurations=("Debug" "Release")
+configurations=("Release")
+for configuration in ${configurations[@]}
+do
+for sdk in ${sdks[@]}
+do
+xcodebuild -project $(pwd)/${target}.xcodeproj -scheme ${target} -configuration "${configuration}" clean -sdk "${sdk}" build  CONFIGURATION_BUILD_DIR="${tmpDir}/${sdk}" ONLY_ACTIVE_ARCH="NO" VALID_ARCHS="arm64 armv7 armv7s x86_64"
+if [[ $? = 0 ]]; then
+ISFRAMEWORKSUCCESS=1
+echo "运行 xcodebuild -target ${target} -configuration ${configuration} clean -sdk ${sdk} build SYMROOT=${tmpDir} ONLY_ACTIVE_ARCH=NO VALID_ARCHS=arm64 armv7 armv7s x86_64"
+else
+echo "framework编译失败"
+fi
+done
+done
+}
+function lipoLibs(){
+#copy Release-iphoneos到 Frameworks 目录,然后 lipo -c 一份
+ios_libs_dir=${tmpDir}
+frameworkDir="${ios_libs_dir}/Frameworks"
+[ -d "${frameworkDir}" ] || mkdir -p "${frameworkDir}"
+cp -r "${ios_libs_dir}/iphoneos/${productName}.framework" "${frameworkDir}/"
+#lipo -c ... -o ..
+lipo -c "${ios_libs_dir}/iphoneos/${productName}.framework/${productName}" "${ios_libs_dir}/iphonesimulator/${productName}.framework/${productName}" -o "${frameworkDir}/${productName}.framework/${productName}"
+rm -rf "${frameworkDir}/${productName}.framework/_CodeSignature"
+}
+function rmLibs(){
+ios_libs_dir=${tmpDir}
+sdks=("iphonesimulator" "iphoneos")
+configurations=("Release" "Debug")
+for configuration in ${configurations[@]}
+do
+for sdk in ${sdks[@]}
+do
+rm -rf "${ios_libs_dir}/${sdk}"
+#rm -rf "${ios_libs_dir}/${configuration}-${sdk}/${productName}.framework"
+done
+done
+}
+buildLibs
+
+if [[ $ISFRAMEWORKSUCCESS = 1 ]]; then
+
+
+lipoLibs
+rmLibs
+
+#获取build好的framework
+frameworkPath="${frameworkDir}/${productName}.framework"
+frameworkZipPath="${frameworkDir}/${productName}.zip"
+#先将build好的framework压缩成zip
+cd ${frameworkDir}
+zip -r  ${productName}.zip ${productName}.framework
+mkdir ${WORKSPACE}/output
+cp -r ${frameworkZipPath} ${WORKSPACE}/output
+rm -rf ${frameworkZipPath}
+
+cd ..
+echo "当前路径-->$(pwd)"
+cd ..
+echo "当前路径-->$(pwd)"
+cd ..
+cd ${demoDir}
+echo "当前路径-->$(pwd)"
+productName="GDCA"
+file="ls *.xcodeproj"
+for item in $file
+do
+filename=${item%.*}
+echo $filename
+productName=$filename
+done
+
+
+if (${Need_Build_Demo}); then
+#只需要framework,归档
+#  mkdir ${WORKSPACE}/output
+#  cp -r ${frameworkZipPath} ${WORKSPACE}/output
+#  rm -rf ${frameworkZipPath}
+#else
+
+#拷贝framework到demo
+echo "拷贝framework到demo"
+echo "$(pwd)/${productName}/sdk/"
+cp -rf ${frameworkPath} "$(pwd)/${productName}/sdk/"
+
+# 项目路径 需修改
+projectDir=$(pwd)
+
+projectName=$productName
+appName=$projectName
+
+# 打包生成路径 需修改
+ipaPath=${projectDir}/output/
+
+# 生成 APP 路径
+buildDir="${projectDir}/build/Release-iphoneos"
+
+# 开始时间
+beginTime='date +%s'
+
+# 创建打包目录
+# 清除无关文件
+rm -rf ${projectDir}/build
+mkdir ${projectDir}/build
+mkdir ${ipaPath}
+
+#是否编译成功，默认是0
+ISBUILDSUCCESS=0
+
+echo "项目名称${projectDir}/"
+echo "项目名称${projectName}/-----2"
+
+# Build 生成 app
+xcodebuild -project ${projectDir}/${projectName}.xcodeproj -scheme ${projectName} -configuration Release clean -sdk iphoneos build  CONFIGURATION_BUILD_DIR="${buildDir}"
+if [[ $? = 0 ]]; then
+echo "\033[31m 编译成功\n \033[0m"
+# 先创建 payload 文件夹
+mkdir ${projectDir}/build/Payload
+# 移动编译生成的 app 到桌面的 Payload 文件夹下
+cp -r ${buildDir}/${appName}.app ${projectDir}/build/Payload
+
+
+# 打包
+cd ${projectDir}/build/
+zip -r ${projectName}.ipa Payload
+cp -r ${projectName}.ipa ${ipaPath}
+# 清除无关文件
+cd ${projectDir}
+#rm -rf ${projectDir}/build
+ISBUILDSUCCESS=1
+
+else
+echo "\033[31m 编译失败\n \033[0m"
+cd "错误"
+fi
+
+
+# 6.上传蒲公英分发平台
+# 蒲公英分发参数 不分发可忽略 默认不分发 下面的两个KEY是默认测试的网址对应KEY
+
+USERKEY="0d97165200cb87737a57463efaa054e0"
+APIKEY="df11062871a27ea95c5faeebb1279f29"
+FILENAME="${ipaPath}/${projectName}.ipa"
+
+if (${pgyer}); then
+echo "正在上传蒲公英..."
+curl -F "file=@${FILENAME}" -F "uKey=${USERKEY}" -F "_api_key=${APIKEY}" https://qiniu-storage.pgyer.com/apiv1/app/upload
+echo "上传完毕"
+else
+echo "不上传蒲公英"
+fi
+
+
+#归档
+if [[ $ISBUILDSUCCESS = 1 ]]; then
+#mkdir ${WORKSPACE}/output
+cp -r ${ipaPath}/${projectName}.ipa ${WORKSPACE}/output
+rm -rf ${ipaPath}
+echo "${ipaPath}"
+
+cd ${projectDir}
+
+rm -rf "$(pwd)/build"
+
+cd ..
+
+# 上传处理完毕 清除无关文件
+#rm -rf "$(pwd)/${demoDir}/build"
+
+rm -rf ${demoDir}.zip
+
+zip -r  ${demoDir}.zip ${demoDir}
+cp -r ${demoDir}.zip ${WORKSPACE}/output
+
+#cp -r ${frameworkZipPath} ${WORKSPACE}/output
+#rm -rf ${frameworkZipPath}
+else
+rm -rf ${WORKSPACE}/output
+fi
+
+fi
+
+fi
+
+
+
+
+#sh ./Jenkins_build.sh
+
