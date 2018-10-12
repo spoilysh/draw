@@ -16,7 +16,16 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    // Do any additional setup after loading the view, typically from a nib.
+    
+    
+    if (@available(iOS 11.0, *)) {
+        NSLog(@"safeInsets = %lf", [UIApplication sharedApplication].keyWindow.safeAreaInsets.top);
+    } else {
+        // Fallback on earlier versions
+    }
+    
+    
+    
 }
 
 
