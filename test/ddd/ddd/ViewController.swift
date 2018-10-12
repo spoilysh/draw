@@ -14,6 +14,8 @@ class ViewController: UIViewController {
         super.viewDidLoad()
         
         
+        UIApplication.shared.isStatusBarHidden = true
+        
         print(UIApplication.shared.windows.first?.safeAreaInsets)
     }
 }
